@@ -19,7 +19,7 @@ Dashboard de análise de ações brasileiras com Python, yfinance e Streamlit.
 streamlit run app.py
 
 ## Status atual
-- [ ] fetcher.py
+- [x] fetcher.py
 - [ ] metrics.py
 - [ ] charts.py
 - [ ] app.py

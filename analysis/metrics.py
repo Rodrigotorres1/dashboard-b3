@@ -1,11 +1,7 @@
+import warnings
 import numpy as np
 import pandas as pd
 import requests
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from data.fetcher import get_stock_data
 
 _BCB_SELIC_URL = (
     "https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados/ultimos/1?formato=json"
@@ -30,7 +26,12 @@ def get_selic_atual() -> float:
         response.raise_for_status()
         selic_diaria = float(response.json()[0]["valor"]) / 100
         return float((1 + selic_diaria) ** 252 - 1)
-    except Exception:
+    except Exception as exc:
+        warnings.warn(
+            f"Falha ao buscar Selic na API do BCB ({exc!r}). "
+            f"Usando fallback de {_SELIC_FALLBACK:.2%} a.a.",
+            stacklevel=2,
+        )
         return _SELIC_FALLBACK
 
 
@@ -112,6 +113,10 @@ def calcular_sharpe(df: pd.DataFrame, risk_free: float | None = None) -> float:
 
 
 if __name__ == "__main__":
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    from data.fetcher import get_stock_data
+
     ticker = "PETR4.SA"
 
     print("Buscando Selic atual na API do Banco Central...")

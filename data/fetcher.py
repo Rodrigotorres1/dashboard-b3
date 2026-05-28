@@ -3,7 +3,7 @@ import pandas as pd
 
 
 class InvalidTickerError(Exception):
-    pass
+    """Raised when a ticker returns no data from yfinance."""
 
 
 def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:

@@ -1,11 +1,10 @@
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from data.fetcher import get_stock_data
+_COR_ALTA = "#26a69a"
+_COR_BAIXA = "#ef5350"
 
 
 def grafico_candlestick(df: pd.DataFrame, ticker: str) -> go.Figure:
@@ -23,15 +22,13 @@ def grafico_candlestick(df: pd.DataFrame, ticker: str) -> go.Figure:
     Returns:
         Figure com dois painéis: candlestick (70%) e volume (30%).
     """
-    close = df["Close"]
-    open_ = close.shift(1).fillna(close)
-    high = pd.concat([open_, close], axis=1).max(axis=1) * 1.001
-    low = pd.concat([open_, close], axis=1).min(axis=1) * 0.999
+    close = df["Close"].to_numpy()
+    open_ = np.roll(close, 1)
+    open_[0] = close[0]
+    high = np.maximum(open_, close) * 1.001
+    low = np.minimum(open_, close) * 0.999
 
-    colors_vol = [
-        "#26a69a" if c >= o else "#ef5350"
-        for c, o in zip(close, open_)
-    ]
+    colors_vol = np.where(close >= open_, _COR_ALTA, _COR_BAIXA).tolist()
 
     fig = make_subplots(
         rows=2, cols=1,
@@ -48,8 +45,8 @@ def grafico_candlestick(df: pd.DataFrame, ticker: str) -> go.Figure:
             low=low,
             close=close,
             name=ticker,
-            increasing_line_color="#26a69a",
-            decreasing_line_color="#ef5350",
+            increasing_line_color=_COR_ALTA,
+            decreasing_line_color=_COR_BAIXA,
         ),
         row=1, col=1,
     )
@@ -164,6 +161,10 @@ def heatmap_correlacao(dfs: list[pd.DataFrame], tickers: list[str]) -> go.Figure
 
 
 if __name__ == "__main__":
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    from data.fetcher import get_stock_data
+
     tickers = ["PETR4.SA", "WEGE3.SA", "GGRC11.SA"]
 
     print("Carregando dados...")

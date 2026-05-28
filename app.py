@@ -26,13 +26,24 @@ st.set_page_config(
 def carregar_dados(ticker: str, period: str) -> pd.DataFrame | None:
     try:
         return get_stock_data(ticker, period)
-    except InvalidTickerError:
+    except (InvalidTickerError, Exception):
         return None
 
 
 @st.cache_data(ttl=3600)
 def selic_atual() -> float:
     return get_selic_atual()
+
+
+@st.cache_data(ttl=3600)
+def calcular_metricas(df: pd.DataFrame, selic: float) -> dict:
+    """Calcula todas as métricas de uma vez para evitar recomputação entre abas."""
+    return {
+        "retorno": calcular_retorno_acumulado(df),
+        "volatilidade": calcular_volatilidade_anual(df),
+        "drawdown": calcular_drawdown_maximo(df),
+        "sharpe": calcular_sharpe(df, risk_free=selic),
+    }
 
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
@@ -87,25 +98,17 @@ aba_geral, aba_comp, aba_det = st.tabs(["Visao Geral", "Comparativo", "Detalhes"
 with aba_geral:
     primeiro = valid_tickers[0]
     df0 = dfs[primeiro]
+    m0 = calcular_metricas(df0, selic)
 
     st.subheader(primeiro)
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric(
-        "Retorno Acumulado",
-        f"{calcular_retorno_acumulado(df0) * 100:+.2f}%",
-    )
-    c2.metric(
-        "Volatilidade Anual",
-        f"{calcular_volatilidade_anual(df0) * 100:.2f}%",
-    )
-    c3.metric(
-        "Drawdown Maximo",
-        f"{calcular_drawdown_maximo(df0) * 100:.2f}%",
-    )
+    c1.metric("Retorno Acumulado", f"{m0['retorno'] * 100:+.2f}%")
+    c2.metric("Volatilidade Anual", f"{m0['volatilidade'] * 100:.2f}%")
+    c3.metric("Drawdown Maximo", f"{m0['drawdown'] * 100:.2f}%")
     c4.metric(
         "Sharpe",
-        f"{calcular_sharpe(df0, risk_free=selic):.4f}",
+        f"{m0['sharpe']:.4f}",
         help=f"Calculado com Selic de {selic * 100:.2f}% a.a.",
     )
 
@@ -135,12 +138,13 @@ with aba_comp:
 with aba_det:
     rows = []
     for ticker, df in dfs.items():
+        m = calcular_metricas(df, selic)
         rows.append({
             "Ticker": ticker,
-            "Retorno Acumulado (%)": round(calcular_retorno_acumulado(df) * 100, 2),
-            "Volatilidade Anual (%)": round(calcular_volatilidade_anual(df) * 100, 2),
-            "Drawdown Maximo (%)": round(calcular_drawdown_maximo(df) * 100, 2),
-            "Sharpe": round(calcular_sharpe(df, risk_free=selic), 4),
+            "Retorno Acumulado (%)": round(m["retorno"] * 100, 2),
+            "Volatilidade Anual (%)": round(m["volatilidade"] * 100, 2),
+            "Drawdown Maximo (%)": round(m["drawdown"] * 100, 2),
+            "Sharpe": round(m["sharpe"], 4),
             "Ultimo Close (R$)": round(float(df["Close"].iloc[-1]), 2),
             "Vol. Medio Diario": int(df["Volume"].mean()),
             "Pregoes": len(df),

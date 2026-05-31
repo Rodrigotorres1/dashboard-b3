@@ -114,6 +114,60 @@ def grafico_retorno_acumulado(dfs: list[pd.DataFrame], tickers: list[str]) -> go
     return fig
 
 
+def grafico_retorno_vs_benchmark(
+    dfs: list[pd.DataFrame],
+    tickers: list[str],
+    df_benchmark: pd.DataFrame,
+    label_benchmark: str = "Ibovespa (benchmark)",
+) -> go.Figure:
+    """
+    Retorna gráfico de retorno acumulado dos ativos comparado a um benchmark.
+
+    Os ativos selecionados são exibidos como linhas coloridas sólidas.
+    O benchmark aparece como linha tracejada cinza, sempre ao fundo na legenda.
+
+    Args:
+        dfs: Lista de DataFrames retornados por get_stock_data.
+        tickers: Lista de nomes correspondentes a cada DataFrame.
+        df_benchmark: DataFrame do benchmark (mesmo formato do get_stock_data).
+        label_benchmark: Rótulo exibido na legenda para o benchmark.
+
+    Returns:
+        Figure com uma linha por ativo e o benchmark destacado visualmente.
+    """
+    fig = go.Figure()
+
+    for df, ticker in zip(dfs, tickers):
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df["Cumulative_Return"] * 100,
+            mode="lines",
+            name=ticker,
+            hovertemplate="%{x|%d/%m/%Y}<br>%{y:.2f}%<extra>" + ticker + "</extra>",
+        ))
+
+    fig.add_trace(go.Scatter(
+        x=df_benchmark.index,
+        y=df_benchmark["Cumulative_Return"] * 100,
+        mode="lines",
+        name=label_benchmark,
+        line=dict(color="gray", width=2, dash="dash"),
+        hovertemplate="%{x|%d/%m/%Y}<br>%{y:.2f}%<extra>" + label_benchmark + "</extra>",
+    ))
+
+    fig.update_layout(
+        title="Retorno Acumulado vs. Ibovespa",
+        yaxis_title="Retorno Acumulado (%)",
+        template="plotly_dark",
+        height=500,
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    fig.add_hline(y=0, line_dash="dash", line_color="rgba(255,255,255,0.15)", line_width=1)
+
+    return fig
+
+
 def heatmap_correlacao(dfs: list[pd.DataFrame], tickers: list[str]) -> go.Figure:
     """
     Retorna heatmap de correlação de Pearson entre os retornos diários dos ativos.

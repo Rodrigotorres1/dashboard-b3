@@ -13,6 +13,7 @@ from components.charts import (
     grafico_candlestick,
     grafico_indicadores_tecnicos,
     grafico_retorno_acumulado,
+    grafico_retorno_vs_benchmark,
     grafico_rsi,
     heatmap_correlacao,
 )
@@ -81,6 +82,8 @@ for ticker in tickers:
     else:
         dfs[ticker] = df
 
+df_ibovespa = carregar_dados("^BVSP", period)
+
 if erros:
     st.warning(f"Tickers nao encontrados e ignorados: {', '.join(erros)}")
 
@@ -139,6 +142,14 @@ with aba_comp:
         grafico_retorno_acumulado(valid_dfs, valid_tickers),
         use_container_width=True,
     )
+
+    if df_ibovespa is not None:
+        st.plotly_chart(
+            grafico_retorno_vs_benchmark(valid_dfs, valid_tickers, df_ibovespa),
+            use_container_width=True,
+        )
+    else:
+        st.warning("Nao foi possivel carregar o Ibovespa (^BVSP). Grafico de benchmark indisponivel.")
 
     if len(valid_tickers) >= 2:
         st.plotly_chart(

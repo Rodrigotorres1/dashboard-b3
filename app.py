@@ -11,7 +11,9 @@ from analysis.metrics import (
 )
 from components.charts import (
     grafico_candlestick,
+    grafico_indicadores_tecnicos,
     grafico_retorno_acumulado,
+    grafico_rsi,
     heatmap_correlacao,
 )
 
@@ -112,8 +114,21 @@ with aba_geral:
         help=f"Calculado com Selic de {selic * 100:.2f}% a.a.",
     )
 
+    st.markdown("#### Preço")
     st.plotly_chart(
         grafico_candlestick(df0, primeiro),
+        use_container_width=True,
+    )
+
+    st.markdown("#### Indicadores Tecnicos")
+    st.plotly_chart(
+        grafico_indicadores_tecnicos(df0, primeiro),
+        use_container_width=True,
+    )
+
+    st.markdown("#### RSI (14)")
+    st.plotly_chart(
+        grafico_rsi(df0, primeiro),
         use_container_width=True,
     )
 

@@ -1,14 +1,40 @@
 import yfinance as yf
 import pandas as pd
 
+from data.cache import carregar_cache, salvar_dados
+
 
 class InvalidTickerError(Exception):
     """Raised when a ticker returns no data from yfinance."""
 
 
+def _fetch_yfinance(ticker: str, period: str) -> pd.DataFrame:
+    """Baixa dados brutos do yfinance e retorna DataFrame normalizado."""
+    raw = yf.download(ticker, period=period, auto_adjust=True, progress=False)
+
+    if raw.empty:
+        raise InvalidTickerError(
+            f"Ticker '{ticker}' retornou dados vazios. Verifique se o ticker é válido."
+        )
+
+    df = raw[["Close", "Volume"]].copy()
+
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.droplevel(1)
+    df.columns.name = None
+
+    df["Return"] = df["Close"].pct_change()
+    df["Cumulative_Return"] = (1 + df["Return"]).cumprod() - 1
+    df.index.name = "Date"
+    return df
+
+
 def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
     """
-    Fetch historical stock data for a B3 ticker.
+    Retorna dados históricos do ativo, usando cache SQLite quando disponível.
+
+    Tenta primeiro o cache local (data/cache.db). Se o cache estiver ausente
+    ou com mais de 1 hora, busca do Yahoo Finance e atualiza o cache.
 
     Args:
         ticker: Stock ticker with .SA suffix (e.g. 'PETR4.SA').
@@ -20,21 +46,12 @@ def get_stock_data(ticker: str, period: str = "1y") -> pd.DataFrame:
     Raises:
         InvalidTickerError: If ticker returns no data or is invalid.
     """
-    raw = yf.download(ticker, period=period, auto_adjust=True, progress=False)
+    cached = carregar_cache(ticker, period)
+    if cached is not None:
+        return cached
 
-    if raw.empty:
-        raise InvalidTickerError(f"Ticker '{ticker}' retornou dados vazios. Verifique se o ticker é válido.")
-
-    df = raw[["Close", "Volume"]].copy()
-
-    # yfinance may return MultiIndex columns when downloading a single ticker
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.droplevel(1)
-
-    df["Return"] = df["Close"].pct_change()
-    df["Cumulative_Return"] = (1 + df["Return"]).cumprod() - 1
-
-    df.index.name = "Date"
+    df = _fetch_yfinance(ticker, period)
+    salvar_dados(ticker, period, df)
     return df
 
 

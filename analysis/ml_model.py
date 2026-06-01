@@ -221,9 +221,9 @@ if __name__ == "__main__":
     print(f"Acuracia CV media  : {acuracia_cv*100:.2f}%  (+/- {acuracia_std*100:.2f}%)")
     print(f"\nRelatorio de classificacao (split temporal 70/30):\n{relatorio}")
 
-    print("--- Previsao ---")
+    print("--- Previsão ---")
     tendencia, prob = prever_tendencia(df, modelo)
-    print(f"Tendencia (proximos 5 pregoes): {tendencia}")
+    print(f"Tendencia (proximos 5 pregões): {tendencia}")
     print(f"Probabilidade                 : {prob*100:.1f}%")
 
     print("\n--- Importancia das features ---")

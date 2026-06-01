@@ -201,7 +201,7 @@ with aba_det:
             "Sharpe": round(m["sharpe"], 4),
             "Ultimo Close (R$)": round(float(df["Close"].iloc[-1]), 2),
             "Vol. Medio Diario": int(df["Volume"].mean()),
-            "Pregoes": len(df),
+            "Pregões": len(df),
         })
 
     tabela = pd.DataFrame(rows).set_index("Ticker")
@@ -223,7 +223,7 @@ with aba_det:
 with aba_ml:
     primeiro = valid_tickers[0]
 
-    st.subheader(f"Previsao de Tendencia — Random Forest")
+    st.subheader(f"Previsão de Tendencia — Random Forest")
     st.caption(f"Modelo treinado com 2 anos de dados de {primeiro}")
 
     with st.spinner(f"Treinando modelo para {primeiro}..."):
@@ -243,14 +243,14 @@ with aba_ml:
 
         c1, c2, c3 = st.columns(3)
         c1.metric(
-            "Tendencia (proximos 5 pregoes)",
+            "Tendencia (proximos 5 pregões)",
             f"{seta} {tendencia}",
             help="Direcao prevista pelo RandomForest com base nas features tecnicas.",
         )
         c2.metric(
             "Probabilidade",
             f"{prob * 100:.1f}%",
-            help="Confianca da previsao: media dos votos das 200 arvores.",
+            help="Confianca da previsão: media dos votos das 200 arvores.",
         )
         c3.metric(
             "Acuracia CV (TimeSeriesSplit)",
@@ -288,6 +288,6 @@ with aba_ml:
         st.plotly_chart(fig_imp, use_container_width=True)
 
         st.warning(
-            "Previsao para fins educacionais. Nao constitui recomendacao de investimento.",
+            "Previsão para fins educacionais. Nao constitui recomendacao de investimento.",
             icon="⚠️",
         )

@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 
 from data.fetcher import get_stock_data, InvalidTickerError
 from analysis.metrics import (
@@ -9,6 +10,7 @@ from analysis.metrics import (
     calcular_sharpe,
     get_selic_atual,
 )
+from analysis.ml_model import _FEATURES, treinar_modelo, prever_tendencia
 from components.charts import (
     grafico_candlestick,
     grafico_indicadores_tecnicos,
@@ -36,6 +38,29 @@ def carregar_dados(ticker: str, period: str) -> pd.DataFrame | None:
 @st.cache_data(ttl=3600)
 def selic_atual() -> float:
     return get_selic_atual()
+
+
+@st.cache_resource(ttl=3600)
+def executar_ml(ticker: str) -> dict | None:
+    """Treina o modelo com 2 anos de dados e retorna resultados prontos para exibição."""
+    try:
+        df2y = get_stock_data(ticker, period="2y")
+        modelo, acuracia_cv, acuracia_std, relatorio = treinar_modelo(df2y)
+        tendencia, prob = prever_tendencia(df2y, modelo)
+        importancias = sorted(
+            zip(_FEATURES, modelo.feature_importances_),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        return {
+            "tendencia": tendencia,
+            "prob": prob,
+            "acuracia_cv": acuracia_cv,
+            "acuracia_std": acuracia_std,
+            "importancias": importancias,
+        }
+    except Exception:
+        return None
 
 
 @st.cache_data(ttl=3600)
@@ -96,7 +121,9 @@ valid_dfs = list(dfs.values())
 
 # ── Abas ─────────────────────────────────────────────────────────────────────
 
-aba_geral, aba_comp, aba_det = st.tabs(["Visao Geral", "Comparativo", "Detalhes"])
+aba_geral, aba_comp, aba_det, aba_ml = st.tabs(
+    ["Visao Geral", "Comparativo", "Detalhes", "Machine Learning"]
+)
 
 # ── Aba 1: Visao Geral ────────────────────────────────────────────────────────
 
@@ -159,7 +186,8 @@ with aba_comp:
     else:
         st.info("Adicione pelo menos 2 tickers para exibir o heatmap de correlacao.")
 
-# ── Aba 3: Detalhes ───────────────────────────────────────────────────────────
+# ── Aba 3: Detalhes ──────────────────────────────────────────────────────────
+
 
 with aba_det:
     rows = []
@@ -189,3 +217,77 @@ with aba_det:
         }),
         use_container_width=True,
     )
+
+# ── Aba 4: Machine Learning ───────────────────────────────────────────────────
+
+with aba_ml:
+    primeiro = valid_tickers[0]
+
+    st.subheader(f"Previsao de Tendencia — Random Forest")
+    st.caption(f"Modelo treinado com 2 anos de dados de {primeiro}")
+
+    with st.spinner(f"Treinando modelo para {primeiro}..."):
+        resultado_ml = executar_ml(primeiro)
+
+    if resultado_ml is None:
+        st.error("Nao foi possivel treinar o modelo. Verifique se ha dados suficientes.")
+    else:
+        tendencia = resultado_ml["tendencia"]
+        prob = resultado_ml["prob"]
+        acuracia_cv = resultado_ml["acuracia_cv"]
+        acuracia_std = resultado_ml["acuracia_std"]
+        importancias = resultado_ml["importancias"]
+
+        cor_tendencia = "#26a69a" if tendencia == "Alta" else "#ef5350"
+        seta = "↑" if tendencia == "Alta" else "↓"
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric(
+            "Tendencia (proximos 5 pregoes)",
+            f"{seta} {tendencia}",
+            help="Direcao prevista pelo RandomForest com base nas features tecnicas.",
+        )
+        c2.metric(
+            "Probabilidade",
+            f"{prob * 100:.1f}%",
+            help="Confianca da previsao: media dos votos das 200 arvores.",
+        )
+        c3.metric(
+            "Acuracia CV (TimeSeriesSplit)",
+            f"{acuracia_cv * 100:.1f}% ± {acuracia_std * 100:.1f}%",
+            help="Media e desvio padrao da acuracia em 5 folds temporais. "
+                 "Avaliacao sem data leakage.",
+        )
+
+        st.markdown("#### Importancia das Features")
+
+        feats = [f for f, _ in importancias]
+        imps = [i for _, i in importancias]
+        cores = [
+            "#64b5f6" if imp >= sorted(imps, reverse=True)[2] else "#546e7a"
+            for imp in imps
+        ]
+
+        fig_imp = go.Figure(go.Bar(
+            x=imps[::-1],
+            y=feats[::-1],
+            orientation="h",
+            marker_color=cores[::-1],
+            text=[f"{v:.1%}" for v in imps[::-1]],
+            textposition="outside",
+            hovertemplate="%{y}: %{x:.4f}<extra></extra>",
+        ))
+        fig_imp.update_layout(
+            template="plotly_dark",
+            height=420,
+            xaxis=dict(title="Importancia", tickformat=".0%"),
+            yaxis=dict(title=""),
+            margin=dict(l=10, r=60, t=20, b=40),
+            showlegend=False,
+        )
+        st.plotly_chart(fig_imp, use_container_width=True)
+
+        st.warning(
+            "Previsao para fins educacionais. Nao constitui recomendacao de investimento.",
+            icon="⚠️",
+        )
